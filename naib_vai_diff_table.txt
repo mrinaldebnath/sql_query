@@ -1,0 +1,20 @@
+select * from their
+where their.concate not in
+(select e1.concate as ee1
+from their e1 join our e2
+where abs(TIMESTAMPDIFF
+(SECOND,
+STR_TO_DATE
+(SUBSTRING_INDEX
+(e1.concate,' ', -2),
+'%m/%d/%Y %T'),
+STR_TO_DATE
+(SUBSTRING_INDEX
+(e2.concate,' ', -2),
+'%m/%d/%Y %T'))
+)<=2
+and
+substring(e1.concate,1,length(e1.concate)-20)=
+substring(e2.concate,1,length(e2.concate)-20)
+)
+order by their.id

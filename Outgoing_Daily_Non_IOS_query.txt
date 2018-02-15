@@ -1,0 +1,17 @@
+select * from 
+(
+select l.incomingroute as IGW,count(*) as 'Successful calls',sum(l.DurationSec)/60.0 as 'Actual Duration',sum(l.roundedduration)/60.0 as 'Billed Duration' from cdrloaded l
+where  l.StartTime>='2018-02-14 00:00:00'
+and l.starttime<='2018-02-14 23:59:59'
+and l.ChargingStatus=1
+and l.CallDirection=5
+group by l.incomingroute
+union
+select e.incomingroute as IGW,count(*) as 'Successful calls',sum(e.DurationSec)/60.0 as 'Actual Duration',sum(e.roundedduration)/60.0 as 'Billed Duration' from cdrerror e
+where  e.StartTime>='2018-02-14 00:00:00'
+and e.starttime<='2018-02-14 23:59:59'
+and e.ChargingStatus=1
+and e.CallDirection=5
+group by e.incomingroute
+ )r
+group by r.IGW

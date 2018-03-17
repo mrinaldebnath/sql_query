@@ -1,0 +1,298 @@
+package com.checkMisMatchCDR;
+
+import java.awt.List;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Locale;
+import java.util.Map;
+
+import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.xssf.usermodel.XSSFCell;
+import org.apache.poi.xssf.usermodel.XSSFRow;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
+import jxl.Cell;
+import jxl.CellView;
+import jxl.Sheet;
+import jxl.Workbook;
+import jxl.WorkbookSettings;
+import jxl.read.biff.BiffException;
+import jxl.write.WritableCellFormat;
+import jxl.write.WritableFont;
+import jxl.write.WritableSheet;
+import jxl.write.WritableWorkbook;
+import jxl.write.WriteException;
+import jxl.write.biff.RowsExceededException;
+
+public class MainCheckMismatch {
+
+	private String inputFile;
+	private String outputFile;
+	private WritableCellFormat times;
+	static int count;
+	
+	MainCheckMismatch our;
+	MainCheckMismatch their;
+
+	private HashMap<String, List> CDRMap = new HashMap<String, List>();
+	
+	
+	
+	public MainCheckMismatch() {
+		super();
+	}
+
+	public MainCheckMismatch(MainCheckMismatch our, MainCheckMismatch their) {
+		super();
+		this.our = our;
+		this.their = their;
+	}
+
+	public void setInputFile(String inputFile) {
+		this.inputFile = inputFile;
+		this.count = 0;
+	}
+
+	public void setOutputFile(String outputFile) {
+		this.outputFile = outputFile;
+	}
+
+	public void read() throws IOException {
+		InputStream inStream = new FileInputStream(inputFile);
+		
+		XSSFWorkbook wbx = new XSSFWorkbook(inStream);
+	
+	XSSFSheet sheet = wbx.getSheetAt(0);
+		int numberofRows=sheet.getLastRowNum();	
+			for (int i = 0; i < numberofRows; i++) {
+				
+				XSSFRow row=sheet.getRow(i);
+				
+				XSSFCell cell = row.getCell(0);
+				DataFormatter formatter = new DataFormatter(); //creating formatter using the default locale
+				String originating = formatter.formatCellValue(cell);
+				//System.out.println(originating);
+				
+				cell = row.getCell(1);
+				String called=formatter.formatCellValue(cell);
+				if(called.startsWith("001")||called.startsWith("1")) {
+					called=called.substring(0,called.indexOf("1"))+called.substring(called.indexOf("1")+1);
+				}
+				
+				cell = row.getCell(2);
+				String starting=formatter.formatCellValue(cell);
+				
+				cell = row.getCell(3);
+				String ending=formatter.formatCellValue(cell);
+				
+				cell = row.getCell(4);
+				String duration=formatter.formatCellValue(cell);
+				
+				List info=new List();
+				info.add(originating);
+				info.add(called);
+				info.add(starting);
+				info.add(ending);
+				info.add(duration);
+				//System.out.println(info.getItem(0)+" "+info.getItem(1)+" "+info.getItem(2)+" "+info.getItem(3)+" "+info.getItem(4));
+				
+				CDRMap.put(originating+" "+called+" "+starting, info);
+			}
+
+	
+	}
+
+	public void write() throws IOException, WriteException {
+
+		String sheetName = "Sheet1";//name of sheet
+
+		XSSFWorkbook wb = new XSSFWorkbook();
+		XSSFSheet sheet = wb.createSheet(sheetName) ;
+		
+		createContent(sheet);
+		
+		//iterating r number of rows
+		FileOutputStream fileOut = new FileOutputStream(outputFile);
+
+		//write this workbook to an Outputstream.
+		wb.write(fileOut);
+		fileOut.flush();
+		fileOut.close();
+
+    }
+
+	private void createContent(XSSFSheet sheet) throws WriteException, RowsExceededException {
+		Iterator it = their.CDRMap.entrySet().iterator();
+		while (it.hasNext()) {
+			Map.Entry pair = (Map.Entry) it.next();
+
+			String CDRString = (String) pair.getKey();
+			
+			List CDRinfo = (List) pair.getValue();
+				
+			String onlyDate = CDRinfo.getItem(2);
+			Date theirDate = new Date();
+
+			try {
+				theirDate = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss").parse(onlyDate);
+			} catch (ParseException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+
+			Date beforeTheirDate = new Date();
+			beforeTheirDate.setTime(theirDate.getTime() - 1000);
+
+			Date afterTheirDate = new Date();
+			afterTheirDate.setTime(theirDate.getTime() + 1000);
+
+			DateFormat reverse = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
+
+			String beforeOnlyDate = reverse.format(beforeTheirDate);
+			String afterOnlyDate = reverse.format(afterTheirDate);
+
+			String beforeCDRString = null;
+			String afterCDRString = null;
+			
+			String temp=CDRinfo.getItem(0)+" "+ CDRinfo.getItem(1)+" ";
+			
+			beforeCDRString = temp+ beforeOnlyDate;
+			afterCDRString = temp+ afterOnlyDate;
+			
+			
+			Date beforeBeforeTheirDate = new Date();
+			beforeBeforeTheirDate.setTime(theirDate.getTime() - 2000);
+
+			Date afterAfterTheirDate = new Date();
+			afterAfterTheirDate.setTime(theirDate.getTime() + 2000);
+
+			String beforeBeforeOnlyDate = reverse.format(beforeBeforeTheirDate);
+			String afterAfterOnlyDate = reverse.format(afterAfterTheirDate);
+
+			String beforeBeforeCDRString = null;
+			String afterAfterCDRString = null;
+			
+			temp=CDRinfo.getItem(0)+" "+ CDRinfo.getItem(1)+" ";
+			
+			beforeBeforeCDRString = temp+ beforeBeforeOnlyDate;
+			afterAfterCDRString = temp+ afterAfterOnlyDate;
+			
+			
+			
+			String theirDuration=CDRinfo.getItem(4);
+			
+			if (our.CDRMap.containsKey(CDRString)) {
+				continue;
+//				String ourDuration=our.CDRMap.get(CDRString).getItem(4);
+//				if(ourDuration.equals(theirDuration)) {				
+//					continue;
+//				}
+//				else System.out.println("doesnt match duration: "+ourDuration);
+				//if(our.CDRMap.get(CDRString).equals(their.CDRMap.get(CDRString)))continue;
+			}
+			
+			else if (our.CDRMap.containsKey(beforeCDRString)) {
+				continue;
+//				String ourDuration=our.CDRMap.get(beforeCDRString).getItem(4);
+//				if(ourDuration.equals(theirDuration)) {
+//					continue;
+//				}
+//				else System.out.println("doesnt match duration: "+ourDuration);
+				//if(our.CDRMap.get(beforeCDRString).equals(their.CDRMap.get(beforeCDRString)))continue;
+			}
+			
+			else if (our.CDRMap.containsKey(afterCDRString)) {
+				continue;
+//				String ourDuration=our.CDRMap.get(afterCDRString).getItem(4);
+//				if(ourDuration.equals(theirDuration)) {					
+//					continue;
+//				}
+//				else System.out.println("doesnt match duration: "+ourDuration);
+				//if(our.CDRMap.get(afterCDRString).equals(their.CDRMap.get(afterCDRString)))continue;
+			}
+			
+			else if (our.CDRMap.containsKey(beforeBeforeCDRString)) {
+				continue;
+//				String ourDuration=our.CDRMap.get(afterCDRString).getItem(4);
+//				if(ourDuration.equals(theirDuration)) {					
+//					continue;
+//				}
+//				else System.out.println("doesnt match duration: "+ourDuration);
+				//if(our.CDRMap.get(afterCDRString).equals(their.CDRMap.get(afterCDRString)))continue;
+			}
+			
+			else if (our.CDRMap.containsKey(afterAfterCDRString)) {
+				continue;
+//				String ourDuration=our.CDRMap.get(afterCDRString).getItem(4);
+//				if(ourDuration.equals(theirDuration)) {					
+//					continue;
+//				}
+//				else System.out.println("doesnt match duration: "+ourDuration);
+				//if(our.CDRMap.get(afterCDRString).equals(their.CDRMap.get(afterCDRString)))continue;
+			}
+			
+			try {
+				//System.out.println(CDRinfo.getItem(0)+" "+CDRinfo.getItem(1)+" "+CDRinfo.getItem(2)+" "+CDRinfo.getItem(3)+" "+CDRinfo.getItem(4));
+				
+				XSSFRow row = sheet.createRow(count);
+				
+				addLabel(sheet,0, count, CDRinfo.getItem(0));
+				addLabel(sheet,1, count, CDRinfo.getItem(1));
+				addLabel(sheet,2, count, CDRinfo.getItem(2));
+				addLabel(sheet,3, count, CDRinfo.getItem(3));
+				addLabel(sheet,4, count++, CDRinfo.getItem(4));
+				
+				//System.out.println("added 0. "+CDRinfo.getItem(0)+" 1. "+CDRinfo.getItem(1)+" 2. "+CDRinfo.getItem(2)+" 3. "+CDRinfo.getItem(3)+" 4. "+CDRinfo.getItem(4));
+				
+			} catch (RowsExceededException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (WriteException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+
+			it.remove(); // avoids a ConcurrentModificationException
+		}
+	}
+	
+	private void addLabel(XSSFSheet sheet, int c, int r, String s)
+            throws WriteException, RowsExceededException {
+		XSSFRow row = sheet.getRow(r);
+		XSSFCell cell = row.createCell(c);
+		cell.setCellValue(s);
+		
+    }
+	
+	public static void main(String[] args) throws IOException {
+		MainCheckMismatch our = new MainCheckMismatch();
+		our.setInputFile("E:\\office\\naib vai\\our.xlsx");
+		our.read();
+
+		MainCheckMismatch their = new MainCheckMismatch();
+		their.setInputFile("E:\\office\\naib vai\\their.xlsx");
+		their.read();
+
+		MainCheckMismatch result = new MainCheckMismatch(our,their);
+		result.setOutputFile("E:\\office\\naib vai\\result.xlsx");
+		try {
+			result.write();
+		} catch (WriteException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		
+		
+	}
+
+}
